@@ -1,5 +1,5 @@
 import type { Response } from "express";
-import { requireApprovedKYC } from "@/lib/kyc";
+import { requireApprovedKyc } from "@/lib/kyc";
 import type { AuthenticatedRequest } from "@/types/auth";
 
 export async function createInvestment(req: AuthenticatedRequest, res: Response) {
@@ -9,7 +9,7 @@ export async function createInvestment(req: AuthenticatedRequest, res: Response)
       return res.status(401).json({ error: "Unauthorized" });
     }
 
-    requireApprovedKYC(user);
+    requireApprovedKyc(user);
 
     return res.status(201).json({ success: true });
   } catch (err: unknown) {
