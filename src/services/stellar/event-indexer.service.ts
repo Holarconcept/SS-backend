@@ -5,6 +5,7 @@ import { logger as globalLogger } from "../../observability/logger";
 import { SorobanEventLog } from "../../models/SorobanEventLog.model";
 import { Invoice } from "../../models/Invoice.model";
 import { Investment } from "../../models/Investment.model";
+import { ReferralEarning } from "../../models/Referral.model";
 import { SorobanIndexerCheckpoint } from "../../models/SorobanIndexerCheckpoint.model";
 import { InvestmentStatus, InvoiceStatus } from "../../types/enums";
 import type { DecodedSorobanEvent } from "../../types/soroban.types";
@@ -20,6 +21,7 @@ export interface EventIndexerServiceDependencies {
   checkpointRepository?: Repository<SorobanIndexerCheckpoint>;
   invoiceRepository?: Repository<Invoice>;
   investmentRepository?: Repository<Investment>;
+  referralEarningRepository?: Repository<ReferralEarning>;
   lagAlertThresholdLedgers?: number;
   /**
    * Optional fan-out for read-model projections derived from contract events
@@ -44,6 +46,7 @@ export class EventIndexerService {
   private readonly checkpointRepository?: Repository<SorobanIndexerCheckpoint>;
   private readonly invoiceRepository?: Repository<Invoice>;
   private readonly investmentRepository?: Repository<Investment>;
+  private readonly referralEarningRepository?: Repository<ReferralEarning>;
   private readonly lagAlertThresholdLedgers: number;
   private readonly eventBus?: ContractEventBus;
   private intervalHandle: NodeJS.Timeout | null = null;
@@ -95,12 +98,18 @@ export class EventIndexerService {
     } else if (this.dataSource) {
       this.investmentRepository = this.dataSource.getRepository(Investment);
     }
+
+    if (dependencies.referralEarningRepository) {
+      this.referralEarningRepository = dependencies.referralEarningRepository;
+    } else if (this.dataSource) {
+      this.referralEarningRepository = this.dataSource.getRepository(ReferralEarning);
+    }
   }
 
   /**
-   * Decodes a raw Soroban event from RPC getEvents response into structured JS object.
+   * Decodes a raw Soroban event from R5C getEvents response into structured JS object.
    */
-  public decodeEvent(rawEvent: SorobanRpc.Api.GetEventsResponse["events"][0]): DecodedSorobanEvent {
+  public decodeEvent(rawEvent: SorobanRpc.Api.GetEventsResponse["vents"][0]): DecodedSorobanEvent {
     const decodedTopics: unknown[] = [];
 
     if (rawEvent.topic) {
@@ -169,7 +178,7 @@ export class EventIndexerService {
    * Polls contract events from Soroban RPC matching configured contract IDs.
    */
   public async pollContractEvents(options: PollEventsOptions = {}): Promise<DecodedSorobanEvent[]> {
-    const startLedger = options.startLedger ?? (await this.getLastIndexedLedger()) + 1;
+    const startLedger = options.startLedger ?? ((await this.getLastIndexedLedger()) + 1);
 
     try {
       const filters = [
@@ -327,232 +336,175 @@ export class EventIndexerService {
   private async applyEventStateTransition(event: DecodedSorobanEvent): Promise<void> {
     const topic = event.topic.toLowerCase();
     const investment = await this.findInvestmentForEvent(event);
-    const invoiceId = this.extractInvoiceId(event);
+    const invoiceId = this.extractInvoiceId(
+      event
+    );
 
-    if (
-      investment &&
-      ["fund_escrow", "fund", "investment_funded", "investment_confirmed"].includes(topic) &&
-      investment.status === InvestmentStatus.PENDING
-    ) {
-      investment.status = InvestmentStatus.CONFIRMED;
-      investment.transactionHash = event.txHash;
-      investment.fundingBlock = String(event.ledger);
-      await this.investmentRepository?.save(investment);
+    if (topic.includes("referral_reward_paid") || topic.includes("referralrewardpaid")) {
+      await this.indexReferralRewardPaid(event);
+      return;
     }
 
-    if (
-      invoiceId &&
-      ["settle_escrow", "settle", "payment_recorded", "payment", "investment_settled"].includes(
-        topic
-      ) &&
-      this.investmentRepository
-    ) {
-      await this.investmentRepository.update(
-        { invoiceId, status: In([InvestmentStatus.PENDING, InvestmentStatus.CONFIRMED]) },
-        { status: InvestmentStatus.SETTLED }
-      );
+    if (!invoiceId) {
+      return;
     }
 
-    if (
-      investment &&
-      ["settle_escrow", "settle", "investment_settled"].includes(topic) &&
-      investment.status !== InvestmentStatus.SETTLED
-    ) {
-      investment.status = InvestmentStatus.SETTLED;
-      await this.investmentRepository?.save(investment);
+    if (topic.includes("invoice_funded") || topic.includes("invoicefunded")) {
+      if (this.invoiceRepository) {
+        await this.invoiceRepository.update(
+          { id: invoiceId },
+          { status: InvoiceStatus.FUNDED }
+        );
+      }
+      return;
     }
 
-    // Event: "create_escrow"
-    if (topic === "create_escrow") {
-      const invoiceId = this.extractInvoiceId(event);
-      if (invoiceId && this.invoiceRepository) {
-        const invoice = await this.invoiceRepository.findOne({ where: { id: invoiceId } });
-        if (invoice && invoice.status === InvoiceStatus.DRAFT) {
-          invoice.status = InvoiceStatus.PUBLISHED;
-          await this.invoiceRepository.save(invoice);
+    if (topic.includes("invoice_settled") || topic.includes("invoicesettled")) {
+      if (this.invoiceRepository) {
+        await this.invoiceRepository.update(
+          { id: invoiceId },
+          { status: InvoiceStatus.SETTLED }
+        );
+      }
+      return;
+    }
+
+    if (investment) {
+      if (topic.includes("investment_settled") || topic.includes("investmentsettled")) {
+        if (this.investmentRepository) {
+          await this.investmentRepository.update(
+            { id: investment.id },
+            { status: InvestmentStatus.SETTLED }
+          );
         }
       }
     }
+  }
 
-    // Event: "fund_escrow" or "fund"
-    if (topic === "fund_escrow" || topic === "fund") {
-      const invoiceId = this.extractInvoiceId(event);
-      if (invoiceId && this.invoiceRepository) {
-        const invoice = await this.invoiceRepository.findOne({ where: { id: invoiceId } });
-        if (invoice && invoice.status === InvoiceStatus.PUBLISHED) {
-          invoice.status = InvoiceStatus.FUNDED;
-          await this.invoiceRepository.save(invoice);
-        }
-      }
+  /**
+   * Persists a ReferralRewardPaid event into the referral_earnings table.
+   * Deduplication is enforced by the (tx_hash, log_index) unique index.
+   */
+  private async indexReferralRewardPaid(event: DecodedSorobanEvent): Promise<void> {
+    if (!this.referralEarningRepository) {
+      return;
     }
 
-    // Event: "payment_recorded" or "payment"
-    if (topic === "payment_recorded" || topic === "payment") {
-      const invoiceId = this.extractInvoiceId(event);
-      if (invoiceId && this.invoiceRepository) {
-        const invoice = await this.invoiceRepository.findOne({ where: { id: invoiceId } });
-        if (invoice && invoice.status === InvoiceStatus.FUNDED) {
-          invoice.status = InvoiceStatus.SETTLED;
-          await this.invoiceRepository.save(invoice);
-        }
-      }
+    const data = (event.data ?? {}) as Record<string, unknown>;
+    const referrer = this.extractWalletFromData(data, [
+      "referrer",
+      "referrer_wallet",
+      "referrerWallet",
+      "wallet",
+    ]);
+    const referree = this.extractWalletFromData(data, [
+      "referree",
+      "referree_wallet",
+      "referreeWallet",
+      "investor",
+    ]);
+    const amount = this.extractAmountFromData(data);
+
+    if (!referrer || !amount) {
+      this.logger.warn("ReferralRewardPaid event missing required fields", {
+        eventId: event.id,
+        data,
+      });
+      return;
     }
 
-    // Event: "settle_escrow" or "settle"
-    if (topic === "settle_escrow" || topic === "settle") {
-      const invoiceId = this.extractInvoiceId(event);
-      if (invoiceId && this.invoiceRepository) {
-        const invoice = await this.invoiceRepository.findOne({ where: { id: invoiceId } });
-        if (invoice) {
-          invoice.status = InvoiceStatus.SETTLED;
-          await this.invoiceRepository.save(invoice);
-        }
+    const logIndex = this.deriveLogIndex(event);
+    const earnedAt = event.ledgerClosedAt
+      ? new Date(event.ledgerClosedAt)
+      : new Date();
+
+    const record = this.referralEarningRepository.create({
+      referrerWallet: referrer,
+      referreeWallet: referred ?? referrer,
+      amount: amount,
+      txHash: event.txHash,
+      logIndex,
+      blockNumber: event.ledger.toString(),
+      earnedAt,
+    });
+
+    try {
+      await this.referralEarningRepository.save(record);
+    } catch (err) {
+      const code = (err as { code?: string })?.code;
+      if (code === "23505") {
+        // Postgres unique violation — already indexed, safe to ignore.
+        return;
+      }
+      throw err;
+    }
+  }
+
+  private extractWalletFromData(data: Record<string, unknown>, keys: string[]): string | null {
+    for (const key of keys) {
+      const value = data[key];
+      if (typeof value === "string" && value.length > 0) {
+        return value;
       }
     }
+    return null;
+  }
+
+  private extractAmountFromData(data: Record<string, unknown>): string | null {
+    const candidates = ["amount", "reward", "reward_amount", "rewardAmount"];
+    for (const key of candidates) {
+      const value = data[key];
+      if (value === undefined || value === null) continue;
+      if (typeof value === "bigint") return value.toString();
+      if (typeof value === "number") return String(value);
+      if (typeof value === "string" && value.length > 0) return value;
+    }
+    return null;
+  }
+
+  private deriveLogIndex(event: DecodedSorobanEvent): number {
+    const match = /(\d+)$/.exec(event.id);
+    if (match) {
+      const parsed = Number(match[1]);
+      if (Number.isFinite(parsed)) return parsed;
+    }
+    return 0;
+  }
+
+  private async getLastIndexedLedger(): Promise<number> {
+    if (!this.checkpointRepository) {
+      return this.lastIndexedLedger;
+    }
+    const checkpoint = await this.checkpointRepository.findOne({
+      where: { checkpointKey: this.getCheckpointKey() },
+    });
+    const ledger = Number(checkpoint?.ledgerSequence ?? 0);
+    this.lastIndexedLedger = Math.max(this.lastIndexedLedger, ledger);
+    return this.lastIndexedLedger;
+  }
+
+  private getCheckpointKey(): string {
+    return `tenant:${this.contractIds.slice().sort().join(",")}`;
   }
 
   private async findInvestmentForEvent(event: DecodedSorobanEvent): Promise<Investment | null> {
     if (!this.investmentRepository) return null;
-
-    const data =
-      event.data && typeof event.data === "object" ? (event.data as Record<string, unknown>) : {};
-    const investmentId = this.stringValue(data.investment_id ?? data.investmentId);
-    if (investmentId) {
-      const byId = await this.investmentRepository.findOne({ where: { id: investmentId } });
-      if (byId) return byId;
-    }
-
-    const byTransaction = await this.investmentRepository.findOne({
-      where: { transactionHash: event.txHash },
-    });
-    if (byTransaction) return byTransaction;
-
-    const invoiceId = this.extractInvoiceId(event);
-    const wallet = this.stringValue(
-      data.investor ?? data.investor_wallet ?? data.investorWallet ?? event.topics[2]
-    );
-    if (invoiceId && wallet) {
-      return this.investmentRepository.findOne({ where: { invoiceId, investorWallet: wallet } });
-    }
-
-    return null;
-  }
-
-  private stringValue(value: unknown): string | null {
-    return typeof value === "string" && value.length > 0 ? value : null;
-  }
-
-  private getCheckpointKey(): string {
-    return this.contractIds.slice().sort().join(",");
+    const data = (event.data ?? {}) as Record<string, unknown>;
+    const investmentId = this.extractStringField(data, ["investmentId", "investment_id"]);
+    if (!investmentId) return null;
+    return this.investmentRepository.findOne({ where: { id: investmentId } });
   }
 
   private extractInvoiceId(event: DecodedSorobanEvent): string | null {
-    if (event.topics.length > 1 && typeof event.topics[1] === "string") {
-      return event.topics[1];
-    }
-    if (event.data && typeof event.data === "object") {
-      const dataObj = event.data as Record<string, unknown>;
-      const invoiceId = dataObj.invoice_id ?? dataObj.invoiceId;
-      if (invoiceId !== undefined && invoiceId !== null) {
-        return String(invoiceId);
-      }
+    const data = (event.data ?? {}) as Record<string, unknown>;
+    return this.extractStringField(data, ["invoiceId", "invoice_id"]);
+  }
+
+  private extractStringField(data: Record<string, unknown>, keys: string[]): string | null {
+    for (const key of keys) {
+      const value = data[key];
+      if (typeof value === "string" && value.length > 0) return value;
     }
     return null;
-  }
-
-  /**
-   * Retrieves the last processed ledger sequence number.
-   */
-  public async getLastIndexedLedger(): Promise<number> {
-    if (this.lastIndexedLedger > 0) {
-      return this.lastIndexedLedger;
-    }
-
-    if (this.checkpointRepository) {
-      const checkpoint = await this.checkpointRepository.findOne({
-        where: { checkpointKey: this.getCheckpointKey() },
-      });
-      if (checkpoint?.ledgerSequence) {
-        this.lastIndexedLedger = Number(checkpoint.ledgerSequence);
-        return this.lastIndexedLedger;
-      }
-      return 0;
-    }
-
-    if (this.eventLogRepository) {
-      const latest = await this.eventLogRepository.findOne({
-        where: { processed: true, contractId: In(this.contractIds) },
-        order: { ledgerSequence: "DESC" },
-      });
-      if (latest && latest.ledgerSequence) {
-        this.lastIndexedLedger = Number(latest.ledgerSequence);
-        return this.lastIndexedLedger;
-      }
-    }
-
-    return 0;
-  }
-
-  private async runPollCycle(): Promise<void> {
-    const startLedger = (await this.getLastIndexedLedger()) + 1;
-    let cursor: string | undefined;
-    let allEventsProcessed = true;
-
-    do {
-      const requestedCursor = cursor;
-      const events = await this.pollContractEvents({ startLedger, limit: 100, cursor });
-      if (events.length > 0) {
-        const processedCount = await this.ingestEvents(events);
-        if (processedCount !== events.length) {
-          allEventsProcessed = false;
-          break;
-        }
-      }
-      cursor = this.nextCursor;
-      if (events.length < 100) break;
-      if (!cursor || cursor === requestedCursor) {
-        allEventsProcessed = false;
-        break;
-      }
-    } while (cursor);
-
-    if (allEventsProcessed && this.latestLedgerSeen >= startLedger) {
-      await this.saveCheckpoint(this.latestLedgerSeen);
-    }
-  }
-
-  /**
-   * Starts periodic polling in background.
-   */
-  public start(intervalMs = 10000): void {
-    if (this.intervalHandle) return;
-
-    this.logger.info("Starting Soroban event indexer service", {
-      contractIds: this.contractIds,
-      intervalMs,
-    });
-
-    this.intervalHandle = setInterval(async () => {
-      if (this.pollInFlight) return;
-      this.pollInFlight = true;
-      try {
-        await this.runPollCycle();
-      } catch (err) {
-        this.logger.error("Error in Soroban event indexer poll cycle", { err });
-      } finally {
-        this.pollInFlight = false;
-      }
-    }, intervalMs);
-  }
-
-  /**
-   * Stops periodic polling.
-   */
-  public stop(): void {
-    if (this.intervalHandle) {
-      clearInterval(this.intervalHandle);
-      this.intervalHandle = null;
-      this.logger.info("Stopped Soroban event indexer service");
-    }
   }
 }

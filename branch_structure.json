@@ -1,0 +1,18 @@
+{
+  "default_branch": "dev",
+  "branches": [
+    "dev",
+    "fix/issue-662-build-referral-stats-indexer-and-earnings-rest",
+    "origin"
+  ],
+  "parent": {
+    "dev": null,
+    "fix/issue-662-build-referral-stats-indexer-and-earnings-rest": "dev",
+    "origin": "dev"
+  },
+  "order": [
+    "dev",
+    "fix/issue-662-build-referral-stats-indexer-and-earnings-rest",
+    "origin"
+  ]
+}
