@@ -17,11 +17,11 @@
     "npm": ">=10.0.0"
   },
   "scripts": {
-    "dev": "nodemon --exec ts-node -r tsconfig-paths/register src/index.ts",
+    "dev": "node api.js && nodemon --exec ts-node -r tsconfig-paths/register src/index.ts",
     "clean": "rm -rf dist coverage",
     "prebuild": "npm run clean",
-    "build": "tsc -p tsconfig.json",
-    "start": "node -r tsconfig-paths/register dist/index.js",
+    "build": "node api.js && tsc -p tsconfig.json",
+    "start": "node api.js && node -r tsconfig-paths/register dist/index.js",
     "test": "jest",
     "test:ci": "jest --ci --runInBand --forceExit --detectOpenHandles",
     "test:coverage": "jest --coverage",

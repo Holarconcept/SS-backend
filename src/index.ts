@@ -58,6 +58,10 @@ import { createIssuerReputationService } from "./services/issuer-reputation.serv
 import { createInvestorRiskProfileService } from "./services/investor-risk-profile.service";
 import { createInvoiceDraftService } from "./services/invoice-draft.service";
 import { createWaitlistService } from "./services/waitlist.service";
+import { createBenchmarkService } from "./services/benchmark.service";
+import { createReferralTierService } from "./services/referral-tier.service";
+import { createYieldBoostService } from "./services/yield-boost.service";
+import { createSecondaryAuctionService } from "./services/secondary-auction.service";
 
 export async function bootstrap(): Promise<{
   server: Server;
@@ -213,6 +217,12 @@ export async function bootstrap(): Promise<{
   // ---- Feature: Waitlist Management (issue #599) ----
   const waitlistService = createWaitlistService(dataSource, logger);
 
+  // Contract event indexes (#676-#679)
+  const benchmarkService = createBenchmarkService(dataSource);
+  const referralTierService = createReferralTierService(dataSource);
+  const yieldBoostService = createYieldBoostService(dataSource);
+  const secondaryAuctionService = createSecondaryAuctionService(dataSource);
+
   const app = createApp({
     authService,
     notificationService,
@@ -244,6 +254,10 @@ export async function bootstrap(): Promise<{
     investorRiskProfileService,
     draftService,
     waitlistService,
+    benchmarkService,
+    referralTierService,
+    yieldBoostService,
+    secondaryAuctionService,
     config,
     logger,
     metricsEnabled: config.observability.metricsEnabled,

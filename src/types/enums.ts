@@ -112,3 +112,32 @@ export enum AutoInvestExecutionStatus {
   SKIPPED_INSUFFICIENT_BALANCE = "skipped_insufficient_balance",
   FAILED = "failed",
 }
+
+/** Investor referral tier (#677). Standard is the default for wallets with no referral history. */
+export enum ReferralTierLevel {
+  STANDARD = "standard",
+  BRONZE = "bronze",
+  SILVER = "silver",
+  GOLD = "gold",
+}
+
+/** Wallet loyalty tier used for yield-boost eligibility (#678). Bronze is not eligible. */
+export enum LoyaltyTier {
+  BRONZE = "bronze",
+  SILVER = "silver",
+  GOLD = "gold",
+  PLATINUM = "platinum",
+}
+
+export enum AuctionStatus {
+  ACTIVE = "active",
+  SETTLED = "settled",
+  CANCELLED = "cancelled",
+}
+
+export enum BidStatus {
+  PLACED = "placed",
+  OUTBID = "outbid",
+  WON = "won",
+  LOST = "lost",
+}
