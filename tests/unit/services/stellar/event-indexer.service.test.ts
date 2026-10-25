@@ -1,4 +1,4 @@
-import { nativeToScVal, xdr } from "stellar-sdk";
+import { nativeToScVal, xdr } from "@stellar/stellar-sdk";
 import { EventIndexerService } from "../../../../src/services/stellar/event-indexer.service";
 import { InvestmentStatus, InvoiceStatus } from "../../../../src/types/enums";
 import type { AppLogger } from "../../../../src/observability/logger";
@@ -27,11 +27,9 @@ describe("EventIndexerService (Issue #135)", () => {
       create: jest.fn().mockImplementation((data) => data),
       save: jest.fn().mockImplementation((data) => Promise.resolve(data)),
       update: jest.fn().mockResolvedValue({ affected: 1 }),
-      findOne: jest
-        .fn()
-        .mockImplementation(({ where }) =>
-          Promise.resolve(where?.eventId ? null : { ledgerSequence: "500" })
-        ),
+      findOne: jest.fn().mockImplementation(({ where }) =>
+        Promise.resolve(where?.eventId ? null : { ledgerSequence: "500" }),
+      ),
     };
 
     mockCheckpointRepo = {
@@ -99,6 +97,7 @@ describe("EventIndexerService (Issue #135)", () => {
       expect(decoded.id).toBe("evt-001");
       expect(decoded.contractId).toBe(ESCROW_CONTRACT_ID);
       expect(decoded.ledger).toBe(1050);
+      expect(decoded.occurredAt).toEqual(new Date(rawEvent.ledgerClosedAt));
       expect(decoded.topic).toBe("fund_escrow");
       expect(decoded.topics).toEqual(["fund_escrow", "INV-2026-001"]);
       expect(BigInt(decoded.data as any)).toBe(100_000n);
@@ -143,6 +142,41 @@ describe("EventIndexerService (Issue #135)", () => {
           filters: [{ type: "contract", contractIds: [ESCROW_CONTRACT_ID] }],
         })
       );
+    });
+
+    it("should follow RPC cursors until every event page has been fetched", async () => {
+      const eventTopic = nativeToScVal("create_escrow", { type: "symbol" }).toXDR("base64");
+      const invoiceTopic = nativeToScVal("INV-100", { type: "string" }).toXDR("base64");
+      mockRpcServer.getEvents
+        .mockResolvedValueOnce({
+          events: [{
+            id: "evt-page-1",
+            contractId: ESCROW_CONTRACT_ID,
+            ledger: 2000,
+            ledgerClosedAt: "2026-08-25T12:05:00Z",
+            txHash: "tx-page-1",
+            topic: [eventTopic, invoiceTopic],
+            value: null,
+            inSuccessfulContractCall: true,
+          }],
+          cursor: "page-2",
+        })
+        .mockResolvedValueOnce({ events: [], cursor: undefined });
+
+      const service = new EventIndexerService({
+        contractIds: [ESCROW_CONTRACT_ID],
+        server: mockRpcServer,
+        logger: mockLogger,
+      });
+
+      const events = await service.pollContractEvents({ startLedger: 2000, limit: 1 });
+
+      expect(events).toHaveLength(1);
+      expect(mockRpcServer.getEvents).toHaveBeenCalledTimes(2);
+      expect(mockRpcServer.getEvents).toHaveBeenLastCalledWith(
+        expect.objectContaining({ cursor: "page-2" }),
+      );
+      expect(mockRpcServer.getEvents.mock.calls[1][0]).not.toHaveProperty("startLedger");
     });
   });
 

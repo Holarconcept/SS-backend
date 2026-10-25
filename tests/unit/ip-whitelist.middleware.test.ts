@@ -73,7 +73,7 @@ describe("ipWhitelistMiddleware", () => {
     expect(res.status).toHaveBeenCalledWith(403);
   });
 
-  it("extracts client IP from X-Forwarded-For header", () => {
+  it("does not trust X-Forwarded-For when Express has not resolved a client IP", () => {
     const middleware = ipWhitelistMiddleware(allowedCidrs);
     const req = makeReq({
       headers: { "x-forwarded-for": "127.0.0.1, 70.41.3.18, 150.172.238.178" },
@@ -83,7 +83,8 @@ describe("ipWhitelistMiddleware", () => {
 
     middleware(req as never, res as never, next as never);
 
-    expect(next).toHaveBeenCalledTimes(1);
+    expect(next).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(403);
   });
 
   it("returns 403 when the first IP in X-Forwarded-For is not whitelisted", () => {

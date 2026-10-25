@@ -1,7 +1,7 @@
 import "reflect-metadata";
 import request from "supertest";
 import { DataSource, getMetadataArgsStorage } from "typeorm";
-import { Keypair } from "stellar-sdk";
+import { Keypair } from "@stellar/stellar-sdk";
 import crypto from "crypto";
 import { createApp } from "../../src/app";
 import { createAuthService } from "../../src/services/auth.service";

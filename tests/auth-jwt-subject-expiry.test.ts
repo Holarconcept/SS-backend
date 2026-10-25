@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import jwt from "jsonwebtoken";
-import { Keypair, Networks } from "stellar-sdk";
+import { Keypair, Networks } from "@stellar/stellar-sdk";
 import { AuthService } from "../src/services/auth.service";
 import type {
   ChallengeRepositoryContract,

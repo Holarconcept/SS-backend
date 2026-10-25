@@ -1,12 +1,10 @@
 import { Router, Request, Response, NextFunction } from "express";
-import { DataSource } from "typeorm";
 import { logger } from "../../observability/logger";
 import type { WaitlistService } from "../../services/waitlist.service";
 import { AppError } from "../../utils/http-error";
 import type { AuthService } from "../../services/auth.service";
 
 export function createWaitlistRouter(
-  dataSource: DataSource,
   waitlistService: WaitlistService,
   _authService: AuthService,
   _notificationService?: unknown

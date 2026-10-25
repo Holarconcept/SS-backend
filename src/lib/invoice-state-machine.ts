@@ -1,6 +1,7 @@
 import { Decimal } from "decimal.js";
-import type { EntityManager } from "typeorm";
+import { In, type EntityManager } from "typeorm";
 import { Invoice } from "../models/Invoice.model";
+import { SettlementIntent, SettlementIntentStatus } from "../models/SettlementIntent.model";
 import {
   InvoiceStatusHistory,
   type InvoiceTransitionActorRole,
@@ -223,7 +224,37 @@ export interface InvoiceTransitionStore {
 
 export function entityManagerTransitionStore(manager: EntityManager): InvoiceTransitionStore {
   return {
-    saveInvoice: (invoice) => manager.save(Invoice, invoice),
+    saveInvoice: async (invoice) => {
+      if (invoice.status === InvoiceStatus.CANCELLED) {
+        try {
+          await manager
+            .createQueryBuilder(Invoice, "invoice")
+            .setLock("pessimistic_write")
+            .where("invoice.id = :id", { id: invoice.id })
+            .getOne();
+        } catch {
+          await manager.findOne(Invoice, { where: { id: invoice.id } });
+        }
+        const settlementIntent = await manager.findOne(SettlementIntent, {
+          where: {
+            invoiceId: invoice.id,
+            status: In([
+              SettlementIntentStatus.PREPARED,
+              SettlementIntentStatus.SUBMITTING,
+              SettlementIntentStatus.DISTRIBUTED,
+            ]),
+          },
+        });
+        if (settlementIntent) {
+          throw new ServiceError(
+            "SETTLEMENT_IN_PROGRESS",
+            "Invoice cannot be cancelled while a settlement payout is pending",
+            409
+          );
+        }
+      }
+      return manager.save(Invoice, invoice);
+    },
     recordHistory: (entry) =>
       manager.save(
         InvoiceStatusHistory,

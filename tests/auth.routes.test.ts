@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import request from "supertest";
-import { Keypair, Networks } from "stellar-sdk";
+import { Keypair, Networks } from "@stellar/stellar-sdk";
 import { createApp } from "../src/app";
 import { User } from "../src/models/User.model";
 import { AuthService } from "../src/services/auth.service";

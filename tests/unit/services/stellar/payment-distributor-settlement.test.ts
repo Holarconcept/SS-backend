@@ -1,4 +1,4 @@
-import { Account, Keypair } from "stellar-sdk";
+import { Account, Keypair } from "@stellar/stellar-sdk";
 import { PaymentDistributorContractService } from "../../../../src/services/stellar/payment-distributor-contract.service";
 
 describe("PaymentDistributorContractService settlement execution", () => {

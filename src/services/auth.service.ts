@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import jwt, { JwtPayload, type SignOptions } from "jsonwebtoken";
 import { DataSource, IsNull, Repository } from "typeorm";
-import { Keypair, StrKey } from "stellar-sdk";
+import { Keypair, StrKey } from "@stellar/stellar-sdk";
 import type { AppConfig } from "../config/env";
 import { AuthChallenge } from "../models/AuthChallenge.model";
 import { User, USER_PROFILE_SELECT } from "../models/User.model";

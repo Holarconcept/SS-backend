@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import { createHmac } from "crypto";
 import jwt from "jsonwebtoken";
-import { Networks } from "stellar-sdk";
+import { Networks } from "@stellar/stellar-sdk";
 import request from "supertest";
 
 import { createApp } from "../../src/app";
