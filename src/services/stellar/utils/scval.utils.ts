@@ -1,4 +1,4 @@
-import { nativeToScVal, Address, xdr } from "stellar-sdk";
+import { nativeToScVal, Address, xdr } from "@stellar/stellar-sdk";
 
 export function scValI128(amount: bigint | string): xdr.ScVal {
   return nativeToScVal(BigInt(amount), { type: "i128" });

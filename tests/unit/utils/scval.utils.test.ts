@@ -1,4 +1,4 @@
-import { scValToNative } from "stellar-sdk";
+import { scValToNative } from "@stellar/stellar-sdk";
 import { scValI128, scValU64, scValSymbol, scValAddress } from "../../../src/services/stellar/utils/scval.utils";
 
 // Polyfill BigInt.prototype.toJSON so Jest IPC message serialization does not throw

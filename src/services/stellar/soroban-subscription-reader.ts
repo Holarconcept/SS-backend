@@ -1,19 +1,16 @@
 import {
   Address,
   Contract,
-  SorobanRpc,
   Transaction,
   nativeToScVal,
   xdr,
   scValToNative,
-} from "stellar-sdk";
+} from "@stellar/stellar-sdk";
+import { rpc as SorobanRpc } from "@stellar/stellar-sdk";
 
 import { logger as globalLogger } from "../../observability/logger";
 import type { AppLogger } from "../../observability/logger";
-import type {
-  KeyHoldingReading,
-  SubscriptionHoldingReader,
-} from "../subscription-status.service";
+import type { KeyHoldingReading, SubscriptionHoldingReader } from "../subscription-status.service";
 
 export interface SorobanSubscriptionReaderDependencies {
   /** Gated-content contract that tracks holdings and the access minimum. */

@@ -104,7 +104,7 @@ jobs:
           exit 1
         timeout-minutes: 2
       - name: Run tests
-        run: npm test
+        run: npm test -- --runInBand
         timeout-minutes: 10
         env:
           DATABASE_URL: postgresql://postgres:password@localhost:5432/stellarsettle_test

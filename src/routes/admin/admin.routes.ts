@@ -9,6 +9,7 @@ import { requireAdminRole } from "@/middleware/require-admin-role.middleware";
 import type { AuthService } from "@/services/auth.service";
 import type { AclService } from "@/services/acl.service";
 import type { InvoiceService } from "@/services/invoice.service";
+import type { InvestorInsightsService } from "@/services/investor-insights.service";
 import type { AdminUserService } from "@/services/admin-user.service";
 import { createAdminUsersRouter } from "./users.routes";
 import type { InvoiceExtensionService } from "@/services/invoice-extension.service";
@@ -42,6 +43,7 @@ export interface AdminRouterDependencies {
   authService: AuthService;
   aclService?: AclService;
   invoiceService?: InvoiceService;
+  investorInsightsService?: InvestorInsightsService;
   /** Optional: enables the /users management endpoints (admin JWT required). */
   adminUserService?: AdminUserService;
   extensionService?: InvoiceExtensionService;
@@ -97,6 +99,8 @@ function lazyRouter(create: () => Router): Router {
 export function createAdminRouter({
   dataSource,
   allowedCidrs,
+  invoiceService: _invoiceService,
+  investorInsightsService,
   authService,
   aclService,
   invoiceService,
@@ -154,6 +158,17 @@ export function createAdminRouter({
   router.post("/revoke-kyc", (req, res) => {
     revokeKYC(req, res, dataSource);
   });
+
+  if (investorInsightsService) {
+    router.get("/onboarding-bonus/pool-balance", async (_req, res, next) => {
+      try {
+        const balance = await investorInsightsService.getBonusPoolBalance();
+        res.status(200).json({ success: true, data: { pool_balance: balance } });
+      } catch (error) {
+        next(error);
+      }
+    });
+  }
 
   if (invoiceService) {
     // Legacy x-admin-key routes
@@ -298,7 +313,7 @@ export function createAdminRouter({
   if (_waitlistService) {
     router.use(
       "/waitlist",
-      createWaitlistRouter(dataSource, _waitlistService, authService, _notificationService)
+      createWaitlistRouter(_waitlistService, authService, _notificationService)
     );
   }
 

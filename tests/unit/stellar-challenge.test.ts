@@ -1,4 +1,4 @@
-import { Keypair, Networks, Transaction } from "stellar-sdk";
+import { Keypair, Networks, Transaction } from "@stellar/stellar-sdk";
 import { buildWalletChallenge } from "@/utils/stellar-challenge";
 import { HttpError } from "@/utils/http-error";
 

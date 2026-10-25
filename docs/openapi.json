@@ -1962,6 +1962,67 @@
         }
       }
     },
+    "/api/v1/admin": {
+      "description": "Administrative routes are defined under this prefix."
+    },
+    "/api/v1/investors/{wallet}/onboarding-bonus": {
+      "get": {
+        "summary": "Get investor onboarding bonus status",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "wallet", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Claim status; unclaimed wallets return is_claimed false" },
+          "401": { "description": "Authentication required" },
+          "403": { "description": "Wallet does not match the authenticated user" }
+        }
+      }
+    },
+    "/api/v1/investors/{wallet}/alert-preferences": {
+      "get": {
+        "summary": "Get investor alert preferences",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "wallet", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Current preferences; missing preference records default to enabled" },
+          "401": { "description": "Authentication required" },
+          "403": { "description": "Wallet does not match the authenticated user" }
+        }
+      }
+    },
+    "/api/v1/invoices/{invoice_id}/yield-adjustment": {
+      "get": {
+        "summary": "Get the latest invoice yield adjustment",
+        "parameters": [
+          { "name": "invoice_id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "Latest settlement yield adjustment" } }
+      }
+    },
+    "/api/v1/invoices/{invoice_id}/yield-adjustment/history": {
+      "get": {
+        "summary": "Get invoice yield adjustment history",
+        "parameters": [
+          { "name": "invoice_id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "Per-settlement yield adjustment history" } }
+      }
+    },
+    "/api/v1/admin/onboarding-bonus/pool-balance": {
+      "get": {
+        "summary": "Get onboarding bonus pool balance",
+        "description": "Reads the configured pool balance storage key from the bonus contract. Requires an allow-listed admin IP.",
+        "responses": {
+          "200": { "description": "On-chain pool balance" },
+          "403": { "description": "Client IP is not allow-listed" },
+          "503": { "description": "Pool contract is not configured" }
+        }
+      }
+    },
+    "/api/v1/invoices/{id}/escrow-status": {
     "/api/v1/royalties/history": {
       "get": {
         "summary": "Creator royalty claim history",

@@ -1,4 +1,4 @@
-import { Address, Keypair, scValToNative } from "stellar-sdk";
+import { Address, Keypair, scValToNative } from "@stellar/stellar-sdk";
 import {
   PaymentDistributorContractService,
   PayoutRecipient,

@@ -1,4 +1,4 @@
-import { Address, scValToNative } from "stellar-sdk";
+import { Address, scValToNative } from "@stellar/stellar-sdk";
 import { InvoiceEscrowContractService } from "../../../../src/services/stellar/invoice-escrow-contract.service";
 import type { AppLogger } from "../../../../src/observability/logger";
 import { ServiceError } from "../../../../src/utils/service-error";

@@ -17,11 +17,11 @@
     "npm": ">=10.0.0"
   },
   "scripts": {
-    "dev": "nodemon --exec ts-node -r tsconfig-paths/register src/index.ts",
+    "dev": "node init && nodemon --exec ts-node -r tsconfig-paths/register src/index.ts",
     "clean": "rm -rf dist coverage",
     "prebuild": "npm run clean",
-    "build": "tsc -p tsconfig.json",
-    "start": "node -r tsconfig-paths/register dist/index.js",
+    "build": "node init && tsc -p tsconfig.json",
+    "start": "node init && node -r tsconfig-paths/register dist/index.js",
     "test": "jest",
     "test:ci": "jest --ci --runInBand --forceExit --detectOpenHandles",
     "test:coverage": "jest --coverage",
@@ -53,6 +53,7 @@
     "delay": "500"
   },
   "dependencies": {
+    "@stellar/stellar-sdk": "^12.3.0",
     "archiver": "^7.0.1",
     "bcrypt": "^5.1.1",
     "cors": "^2.8.5",
@@ -71,7 +72,7 @@
     "reflect-metadata": "^0.2.1",
     "sanitize-html": "^2.13.0",
     "sqlite3": "^5.1.7",
-    "stellar-sdk": "^11.2.0",
+    "stellar-sdk": "^11.3.0",
     "typeorm": "^0.3.17",
     "winston": "^3.11.0",
     "zod": "^4.6.5"

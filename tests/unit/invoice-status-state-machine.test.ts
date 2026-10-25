@@ -24,6 +24,7 @@ import { Investment } from "../../src/models/Investment.model";
 import { InvestorAcknowledgement } from "../../src/models/InvestorAcknowledgement.model";
 import { Invoice } from "../../src/models/Invoice.model";
 import { InvoiceStatusHistory } from "../../src/models/InvoiceStatusHistory.model";
+import { SettlementIntent } from "../../src/models/SettlementIntent.model";
 import type { AppLogger } from "../../src/observability/logger";
 import { logger } from "../../src/observability/logger";
 import { InvestmentService } from "../../src/services/investment.service";
@@ -70,7 +71,11 @@ function createStore() {
     },
     recordHistory: async (entry) => {
       history.push(entry);
-      return { id: crypto.randomUUID(), createdAt: new Date(), ...entry } as unknown as InvoiceStatusHistory;
+      return {
+        id: crypto.randomUUID(),
+        createdAt: new Date(),
+        ...entry,
+      } as unknown as InvoiceStatusHistory;
     },
   };
   return { store, savedInvoices, history };
@@ -500,6 +505,30 @@ describe("invoice status state machine (#468)", () => {
           toStatus: InvoiceStatus.PENDING,
         })
       );
+    });
+
+    it("blocks invoice cancellation while a settlement intent is pending", async () => {
+      const invoice = makeInvoice({ status: InvoiceStatus.FUNDED });
+      const save = jest.fn(async (_entity: unknown, value: unknown) => value);
+      const findOne = jest.fn().mockResolvedValue({ id: "intent-1" });
+      const store = entityManagerTransitionStore({ save, findOne } as never);
+
+      await expect(
+        new InvoiceStateMachine().transition(store, invoice, InvoiceStatus.CANCELLED, {
+          actor: { role: "admin" },
+          trigger: "admin_cancelled",
+        })
+      ).rejects.toMatchObject({
+        code: "SETTLEMENT_IN_PROGRESS",
+        statusCode: 409,
+      });
+      expect(findOne).toHaveBeenCalledWith(
+        SettlementIntent,
+        expect.objectContaining({
+          where: expect.objectContaining({ invoiceId: invoice.id }),
+        })
+      );
+      expect(save).not.toHaveBeenCalled();
     });
   });
 

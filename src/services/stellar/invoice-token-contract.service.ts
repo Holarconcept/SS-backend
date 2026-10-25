@@ -4,9 +4,9 @@ import {
   nativeToScVal,
   scValToNative,
   xdr,
-  SorobanRpc,
   Transaction,
-} from "stellar-sdk";
+} from "@stellar/stellar-sdk";
+import { rpc as SorobanRpc } from "@stellar/stellar-sdk";
 import type { AppLogger } from "../../observability/logger";
 import { logger as globalLogger } from "../../observability/logger";
 

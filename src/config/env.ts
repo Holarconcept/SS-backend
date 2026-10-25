@@ -1,6 +1,6 @@
 import { config } from "dotenv";
 import "dotenv/config";
-import { Networks } from "stellar-sdk";
+import { Networks } from "@stellar/stellar-sdk";
 
 config();
 

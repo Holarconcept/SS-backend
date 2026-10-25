@@ -7,7 +7,7 @@ import {
   StrKey,
   Transaction,
   TransactionBuilder,
-} from "stellar-sdk";
+} from "@stellar/stellar-sdk";
 import { HttpError } from "./http-error";
 
 export interface WalletChallenge {

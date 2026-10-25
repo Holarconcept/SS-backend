@@ -43,7 +43,14 @@ function buildListing(overrides: Partial<Record<string, unknown>> = {}) {
 
 function buildDataSource(listing: ReturnType<typeof buildListing>, failCommit = false) {
   const manager = {
-    findOne: jest.fn().mockResolvedValue(listing),
+    findOne: jest
+      .fn()
+      .mockResolvedValueOnce(listing)
+      .mockResolvedValueOnce({ status: InvoiceStatus.FUNDED }),
+    find: jest.fn().mockResolvedValue([
+      { investmentAmount: "100.0000", expectedReturn: "110.0000" },
+    ]),
+    create: jest.fn((_entity: unknown, values: object) => values),
     save: jest.fn().mockImplementation(async (entity: unknown) => entity),
   };
   return {

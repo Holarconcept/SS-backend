@@ -1,4 +1,4 @@
-import { Keypair, StrKey } from "stellar-sdk";
+import { Keypair, StrKey } from "@stellar/stellar-sdk";
 
 import { isValidStellarPublicKey } from "../../src/utils/stellar-address.utils";
 

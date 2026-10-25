@@ -20,6 +20,46 @@ graph TD
 
 The indexer filters and listens to specific topics from various smart contracts.
 
+The background indexer is started when `SOROBAN_INDEXER_CONTRACT_IDS` is set to
+a comma-separated list of contract IDs. It paginates each RPC response and
+stores each RPC event ID in `soroban_event_logs` and the RPC high-water ledger
+in `soroban_indexer_checkpoints`, including ledgers without matching events.
+Failed state updates remain unprocessed and are retried from their ledger on the next poll. Configure the
+RPC endpoint with `STELLAR_RPC_URL` (or `SOROBAN_RPC_URL`).
+
+### Investor events
+
+The event topic name is the first decoded topic. Investor event values can be
+encoded as named fields in the event data or as positional topics after the
+topic name. The indexer accepts camelCase or snake_case field names:
+
+- `OnboardingBonusClaimed`: `wallet`, `bonus_amount`, `invoice_id`, and
+  optionally `claimed_at`. The timestamp falls back to the ledger close time.
+- `AlertPreferenceUpdated`: `wallet` and preference booleans for
+  `settlement`, `kyc_expiry`, `watchlist_change`, `auto_invest`, and `maturity`.
+  Omitted settings remain enabled by default.
+- Settlement events: `invoice_id`, `adjustment_bps`, `basis_rating`, and
+  `adjusted_yield`. An omitted bps value is recorded as zero when rating/yield
+  adjustment data is present.
+
+The onboarding pool admin endpoint reads the persistent contract-data key
+configured by `ONBOARDING_BONUS_POOL_STORAGE_KEY` (default `pool_balance`) from
+`ONBOARDING_BONUS_CONTRACT_ID`. Alert dispatch posts one JSON request per opted-in
+wallet to `NOTIFICATION_SERVICE_URL` with `wallet`, `event_type`, and event
+metadata; each request includes an `idempotency-key`. A bearer token can be
+configured with `NOTIFICATION_SERVICE_TOKEN`. Dispatch failures leave the event
+unprocessed so the indexer can retry it.
+
+Investor wallet endpoints are authenticated and only return data for the
+authenticated wallet. Yield-adjustment reads are available without wallet
+authentication:
+
+- `GET /api/v1/investors/:wallet/onboarding-bonus`
+- `GET /api/v1/investors/:wallet/alert-preferences`
+- `GET /api/v1/invoices/:invoice_id/yield-adjustment`
+- `GET /api/v1/invoices/:invoice_id/yield-adjustment/history`
+- `GET /api/v1/admin/onboarding-bonus/pool-balance` (admin IP allowlist)
+
 ### 1. Invoice Escrow Contract (`invoice-escrow`)
 Topics emitted during the escrow lifecycle:
 - `["escrow", "initialized"]`: Triggered when a new invoice is escrowed.

@@ -2,7 +2,7 @@ import crypto from "crypto";
 import express from "express";
 import request from "supertest";
 import { QueryFailedError, type DataSource } from "typeorm";
-import { Keypair } from "stellar-sdk";
+import { Keypair } from "@stellar/stellar-sdk";
 
 import { createInvoiceStateMachine } from "../../src/lib/invoice-state-machine";
 import { createErrorMiddleware } from "../../src/middleware/error.middleware";

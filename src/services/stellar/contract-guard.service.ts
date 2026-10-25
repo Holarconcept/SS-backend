@@ -1,4 +1,4 @@
-import { Contract, xdr, scValToNative } from "stellar-sdk";
+import { Contract, xdr, scValToNative } from "@stellar/stellar-sdk";
 import type { AppLogger } from "../../observability/logger";
 import { logger as globalLogger } from "../../observability/logger";
 
