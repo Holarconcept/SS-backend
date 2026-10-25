@@ -2,7 +2,7 @@ import "reflect-metadata";
 import request from "supertest";
 import express from "express";
 import jwt from "jsonwebtoken";
-import { Keypair } from "stellar-sdk";
+import { Keypair } from "@stellar/stellar-sdk";
 
 import { createRoyaltiesRouter } from "../../src/routes/royalties.routes";
 import { createSubscriptionsRouter } from "../../src/routes/subscriptions.routes";

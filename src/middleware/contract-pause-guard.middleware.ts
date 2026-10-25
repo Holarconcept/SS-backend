@@ -1,5 +1,5 @@
 import type { NextFunction, Request, Response } from "express";
-import { Contract } from "stellar-sdk";
+import { Contract } from "@stellar/stellar-sdk";
 import type { ContractGuardService } from "../services/stellar/contract-guard.service";
 import type { AppLogger } from "../observability/logger";
 import { logger as globalLogger } from "../observability/logger";

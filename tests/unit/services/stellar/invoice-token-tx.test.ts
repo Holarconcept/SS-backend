@@ -1,4 +1,4 @@
-import { Address, nativeToScVal, scValToNative, xdr } from "stellar-sdk";
+import { Address, nativeToScVal, scValToNative, xdr } from "@stellar/stellar-sdk";
 import { InvoiceTokenContractService } from "../../../../src/services/stellar/invoice-token-contract.service";
 
 describe("InvoiceTokenContractService - buildMintTx", () => {

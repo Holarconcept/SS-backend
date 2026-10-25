@@ -24,7 +24,9 @@ describe("SecondaryMarketService", () => {
 
   beforeEach(() => {
     manager = {
-      findOne: jest.fn().mockResolvedValue(invoice),
+      findOne: jest.fn((entity: typeof Invoice) =>
+        Promise.resolve(entity === Invoice ? invoice : null)
+      ),
       find: jest.fn((entity: typeof Investment | typeof SecondaryListing) =>
         Promise.resolve(entity === Investment ? investments : [existingListing])
       ),

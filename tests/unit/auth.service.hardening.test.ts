@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import { Keypair, Networks } from "stellar-sdk";
+import { Keypair, Networks } from "@stellar/stellar-sdk";
 import { AuthService } from "@/services/auth.service";
 import type {
   ChallengeRepositoryContract,

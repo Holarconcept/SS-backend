@@ -3,11 +3,11 @@ import {
   Address,
   nativeToScVal,
   xdr,
-  SorobanRpc,
   Keypair,
   TransactionBuilder,
   BASE_FEE,
-} from "stellar-sdk";
+} from "@stellar/stellar-sdk";
+import { rpc as SorobanRpc } from "@stellar/stellar-sdk";
 import type { AppLogger } from "../../observability/logger";
 import { logger as globalLogger } from "../../observability/logger";
 import { ServiceError } from "../../utils/service-error";
@@ -192,7 +192,7 @@ export class PaymentDistributorContractService {
 
     // Submit and map Soroban RPC errors to ServiceError with retryability
     try {
-      const submitted = await this.rpcServer.sendTransaction(prepared);
+      const submitted = (await this.rpcServer.sendTransaction(prepared)) as SorobanRpc.Api.SendTransactionResponse;
       if (submitted.status === "ERROR") {
         // Map to a ServiceError (non-retryable transaction rejection)
         throw mapSorobanError(submitted, {
@@ -201,7 +201,7 @@ export class PaymentDistributorContractService {
       }
 
       for (let attempt = 0; attempt < this.confirmationAttempts; attempt++) {
-        const result = await this.rpcServer.getTransaction(submitted.hash);
+        const result = (await this.rpcServer.getTransaction(submitted.hash)) as SorobanRpc.Api.GetTransactionResponse;
         if (result.status === "SUCCESS") {
           this.logger.info("Payment distribution confirmed on-chain.", {
             invoice_id: input.invoiceId,
@@ -225,7 +225,8 @@ export class PaymentDistributorContractService {
       throw new Error("Timed out waiting for payment distribution confirmation.");
     } catch (err) {
       // If it's already a ServiceError, rethrow; otherwise map and throw a sanitized ServiceError
-      if (err instanceof ServiceError || (err instanceof Error && err.name === "ServiceError")) throw err;
+      if (err instanceof ServiceError || (err instanceof Error && err.name === "ServiceError"))
+        throw err;
       const mapped = mapSorobanError(err, {
         contractId: this.contractId,
         invoiceId: input.invoiceId,

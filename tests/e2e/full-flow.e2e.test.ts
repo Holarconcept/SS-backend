@@ -28,7 +28,7 @@
 import "reflect-metadata";
 import request from "supertest";
 import { DataSource, getMetadataArgsStorage } from "typeorm";
-import { Keypair } from "stellar-sdk";
+import { Keypair } from "@stellar/stellar-sdk";
 import { createApp } from "../../src/app";
 import { createAuthService } from "../../src/services/auth.service";
 import { createInvoiceService } from "../../src/services/invoice.service";

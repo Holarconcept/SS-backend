@@ -266,6 +266,7 @@ export async function bootstrap(): Promise<{
   const server = app.listen(config.port, () => {
     logger.info("Server running", { port: config.port });
   });
+  server.on("close", () => eventIndexer?.stop());
 
   // Settlement outcomes for notification dispatch; the state machine effects
   // above already notify sellers and investors of each status change.
